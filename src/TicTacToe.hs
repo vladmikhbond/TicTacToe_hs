@@ -67,67 +67,76 @@ _max, _min :: M
 -- Обирає кращий за оцінкою хід, зроблений із неповного треку 
 step :: Track
   -> M   -- 1 = minimum, 2 = maximum 
+  -> Int 
   -> P
-step track m = snd $ maxmin costs
+step track m deep = snd $ maxmin costs
  where
    maxmin = if m == _min then minimum else maximum
-   costs = map (\b -> (estimate (b ~ track) m, b)) blanks  -- [(оцінка, хід)]
+   costs = map (\b -> (estimate (b ~ track) m deep, b)) blanks  -- [(оцінка, хід)]
    blanks = [0..8] \\ list track
 
 -- Оцінює заданий трек 
 estimate :: Track
    -> M    -- 1 = minimum, 2 = maximum 
+   -> Int
    -> C    -- 1, -1,  0
-estimate track m | (length . list) track < 9 =
+estimate track m deep 
+   | (length . list) track < 9 && deep > 0 =
    let c = winner track in
       if c /= 0
          then c
-         else estimate (p ~ track) m'
+         else estimate (p ~ track) m' (deep - 1)
          where
             m' = _min + _max - m
-            p = step track m'
-estimate track _ = winner track
+            p = step track m' (deep - 1)
+estimate track _ _ = winner track
 
 -- ---------------------------------------------------------------------
-run = do
+run :: Int -> IO ()
+run deep = do
    let t = Track []
-   play t
-   putStr "\27[5;1fContinue? y(def) | n > "
+   play t deep
+   putStr "\27[5;1fContinue? y(def) | n >>> "
    hFlush stdout
    x <- getLine
-   when (x == "y" || x == "Y" || x == "" ) run
+   when (x == "y" || x == "Y" || x == "" ) $ run (deep + 1)
 
-play track = do
-   drawBoard track "-------"
-   putStr "\27[5;1f>>>"    -- line 5; pos 1
+play :: Track -> Int -> IO ()
+play track deep = do
+   drawBoard track ("-------" ++ show deep)
+   putStr "\27[5;1f>>> "    -- line 5; pos 1
    hFlush stdout
    line <- getLine
-   when (line /= "") $ play0 track line
+   when (line /= "") $ play0 track line deep
 
-play0 track line = do
+play0 :: Track -> String -> Int -> IO ()
+play0 track line deep = do
    let n = readMaybe line
    case n of
-      Nothing -> play track
+      Nothing -> play track deep
       Just n' -> 
          if n' `elem` [0..8] \\ list track
-            then play1 track n'
-            else play track
+            then play1 track n' deep
+            else play track deep
 
-play1 track n = do
+play1 :: Track -> P -> Int -> IO ()
+play1 track n deep = do
   let trackX = n ~ track
   drawBoard trackX "Let me think ..."
   if winner trackX /= 1
-     then play2 trackX
+     then play2 trackX deep
      else drawBoard trackX "Cross won!"
 
-play2 trackX = do
+play2 :: Track -> Int -> IO ()
+play2 trackX deep = do
   if notFull trackX
-     then play3 trackX
+     then play3 trackX deep
      else drawBoard trackX "It's draw."
 
-play3 trackX = do
-   let posO = step trackX _min
+play3 :: Track -> Int -> IO ()
+play3 trackX deep = do
+   let posO = step trackX _min deep
    let trackO = posO ~ trackX
    if winner trackO /= (-1)
-      then play trackO
+      then play trackO deep
       else drawBoard trackO "Zero won!"
