@@ -4,6 +4,8 @@ module TicTacToe (
 
 import Data.List (sort, (\\))
 import Control.Monad ( when )
+import Text.Read (readMaybe )
+
 
 type P = Int -- 0..8 - position
 type C = Int -- -1, 1, 0 - cost
@@ -90,11 +92,11 @@ estimate track _ = winner track
 run = do
    let t = Track []
    play t
-   putStr "continue? y|n > y"
+   putStr "Continue? y(default) | n > "
    x <- getLine
    when (x == "y" || x == "Y" || x == "" ) run
 
-play :: Track -> IO ()
+
 play track = do
    drawBoard track "-------"
    putStr ">>> "
@@ -102,10 +104,13 @@ play track = do
    when (line /= "") $ play0 track line
 
 play0 track line = do
-   let n = read line
-   if n `elem` [0..8] \\ list track
-      then play1 track n
-      else play track
+   let n = readMaybe line
+   case n of
+      Nothing -> play track
+      Just n' -> 
+         if n' `elem` [0..8] \\ list track
+            then play1 track n'
+            else play track
 
 play1 track n = do
   let trackX = n ~ track
