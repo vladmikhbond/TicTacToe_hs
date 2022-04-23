@@ -5,7 +5,7 @@ module TicTacToe (
 import Data.List (sort, (\\))
 import Control.Monad ( when )
 import Text.Read (readMaybe )
-
+import System.IO (hFlush, stdout)
 
 type P = Int -- 0..8 - position
 type C = Int -- -1, 1, 0 - cost
@@ -19,7 +19,7 @@ norm = "\27[m"
 gray = "\27[1m\27[30m"
 
 drawBoard :: Track -> String -> IO ()
-drawBoard track message = do
+drawBoard track message = do  
    putStr $ clrscr ++ gray ++ "0  1  2\n3  4  5\n6  7  8" ++ origin ++ norm
    mapM_ drawChar (zip (reverse (list track)) "xoxoxoxox")
    putStr "\27[4;1f"    -- line 4; pos 1
@@ -92,14 +92,15 @@ estimate track _ = winner track
 run = do
    let t = Track []
    play t
-   putStr "Continue? y(default) | n > "
+   putStr "\27[5;1fContinue? y(def) | n > "
+   hFlush stdout
    x <- getLine
    when (x == "y" || x == "Y" || x == "" ) run
 
-
 play track = do
    drawBoard track "-------"
-   putStr ">>> "
+   putStr "\27[5;1f>>>"    -- line 5; pos 1
+   hFlush stdout
    line <- getLine
    when (line /= "") $ play0 track line
 

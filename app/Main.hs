@@ -1,6 +1,5 @@
 module Main where
 
-import TicTacToe
+import TicTacToe (run)
 
-main :: IO ()
 main = run
