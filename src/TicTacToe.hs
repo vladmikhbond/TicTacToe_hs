@@ -1,73 +1,76 @@
+{-# OPTIONS_GHC -Wno-unrecognised-pragmas #-}
+{-# HLINT ignore "Redundant where" #-}
+
 module TicTacToe (
     run
 ) where
 
-import Data.List (sort, (\\))
+import Data.List (sort, (\\), find)
 import Control.Monad ( when )
 import Text.Read (readMaybe )
 import System.IO (hFlush, stdout)
+import Data.Complex (imagPart)
+import Data.Maybe ( isJust, fromJust )
 
 type P = Int -- 0..8 - position
 type C = Int -- -1, 1, 0 - cost
 type M = Int -- 1, 2 - min | max
-newtype Track = Track {list :: [P] }  deriving Show 
-
-clrscr = "\27[0;0H\27[J"
-origin =  "\27[0;0H"
-red = "\27[31m"
-norm = "\27[m"
-gray = "\27[1m\27[30m"
-
-drawBoard :: Track -> String -> IO ()
-drawBoard track message = do  
-   putStr $ clrscr ++ gray ++ "0  1  2\n3  4  5\n6  7  8" ++ origin ++ norm
-   mapM_ drawChar (zip (reverse (list track)) "xoxoxoxox")
-   putStr "\27[4;1f"    -- line 4; pos 1
-   putStrLn message
-      where
-         drawChar (pos, c) = let (x, y) = divMod pos 3
-            in putStr $ "\27[" ++ show (x+1) ++ ";" ++ show (3*y+1) ++"f" ++ [c]
-   
--- https://ru.wikipedia.org/wiki/%D0%A3%D0%BF%D1%80%D0%B0%D0%B2%D0%BB%D1%8F%D1%8E%D1%89%D0%B8%D0%B5_%D0%BF%D0%BE%D1%81%D0%BB%D0%B5%D0%B4%D0%BE%D0%B2%D0%B0%D1%82%D0%B5%D0%BB%D1%8C%D0%BD%D0%BE%D1%81%D1%82%D0%B8_ANSI
-
-(~) :: P -> Track -> Track
-pos ~ track = Track $ pos : list track
-
-th :: Track -> P
-th = head . list
-
-notFull :: Track -> Bool
-notFull t = length (list t) < 9
-
--- Знаходить переможця у треку: 
--- 1 - переміг Х, -1 - переміг О, 0 - нема переможця
--- Track [8,3,4,1,0] -> 1
-winner :: Track -> C
-winner (Track ns)
-  | testX = 1
-  | testO = -1
-  | otherwise = 0
-  where
-      wins
-        = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7],
-           [2, 5, 8], [0, 4, 8], [2, 4, 6]]
-      n = length ns - 1
-      sn = reverse ns
-      xx = [sn !! i | i <- [0, 2 .. n]]
-      oo = [sn !! i | i <- [1, 3 .. n]]
-      testX = any (`subset` xx) wins
-      testO = any (`subset` oo) wins
-      subset ss s = all (`elem` s) ss
-
----------------------------------------------------------------
+newtype Track = Track {list :: [P] }  deriving Show
 
 _max, _min :: M
 (_min, _max) = (1, 2)   -- enum
 
+----------------------------------------------------------------------
+clrscr = "\27[0;0H\27[J"
+origin =  "\27[0;0H"
+red = "\27[31m"
+yellow = "\27[33m"
+cian = "\27[36m"
+norm = "\27[m"
+gray = "\27[1m\27[30m"
+rc row col= "\27["++ show row ++";"++ show col ++"f"
+
+
+drawBoard :: Track -> [P] -> String -> IO ()
+drawBoard track comb message = do
+   putStr $ clrscr ++ gray ++ "0  1  2\n3  4  5\n6  7  8" ++ origin ++ norm
+   mapM_ drawChar (zip (reverse (list track)) "xoxoxoxox")
+   putStrLn $ norm ++ rc 4 1 ++ message
+    where
+      drawChar (pos, char) = let
+         (r, c) = divMod pos 3
+         color
+            | pos `elem` comb = red
+            | char == 'x' = yellow 
+            | otherwise = cian
+         in 
+            putStr $ rc (r + 1) (3 * c + 1) ++ color ++ [char]
+
+---------------------------------- MODEL -----------------------------
+
+-- Знаходить комбінацію-переможця у треку: 
+-- (xxx, 1) - переміг Х, (ooo,-1) - переміг О, ([], 0) - нема переможця
+winner :: Track -> ([P], C)
+winner (Track ns)
+  | isJust winX  = (fromJust winX, 1)
+  | isJust winO  = (fromJust winO, -1)
+  | otherwise    = ([], 0)
+  where
+      wins = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]]
+      n = length ns - 1
+      sn = reverse ns
+      xxx = [sn !! i | i <- [0, 2 .. n]]
+      ooo = [sn !! i | i <- [1, 3 .. n]]
+      winX = find (`subset` xxx) wins
+      winO = find (`subset` ooo) wins
+
+value :: Track -> C
+value = snd . winner
+
 -- Обирає кращий за оцінкою хід, зроблений із неповного треку 
 step :: Track
   -> M   -- 1 = minimum, 2 = maximum 
-  -> Int 
+  -> Int
   -> P
 step track m deep = snd $ maxmin costs
  where
@@ -80,63 +83,89 @@ estimate :: Track
    -> M    -- 1 = minimum, 2 = maximum 
    -> Int
    -> C    -- 1, -1,  0
-estimate track m deep 
+estimate track m deep
    | (length . list) track < 9 && deep > 0 =
-   let c = winner track in
+   let c = value track in
       if c /= 0
          then c
          else estimate (p ~ track) m' (deep - 1)
          where
             m' = _min + _max - m
             p = step track m' (deep - 1)
-estimate track _ _ = winner track
+estimate track _ _ = value track
 
--- ---------------------------------------------------------------------
+----------------------------- UTILS ------------------------------------
+
+subset ss s = all (`elem` s) ss
+
+(~) :: P -> Track -> Track
+pos ~ track = Track $ pos : list track
+
+th :: Track -> P
+th = head . list
+
+full :: Track -> Bool
+full track = length (list track) == 9
+
+add deep x = let y = deep + x in
+   if 0 <= y && y <= 9 then y else deep
+
+putStrRC r c mess = do
+   putStr $ rc r c ++ mess
+   hFlush stdout
+
+futureDraw track = length (list track) == 8 && value (x ~ track) == 0
+ where
+   [x] = [0..8] \\ list track
+
+----------------------------------- DIALOG -------------------------------
 run :: Int -> IO ()
 run deep = do
-   let t = Track []
-   play t deep
-   putStr "\27[5;1fContinue? y(def) | n >>> "
-   hFlush stdout
-   x <- getLine
-   when (x == "y" || x == "Y" || x == "" ) $ run (deep + 1)
-
-play :: Track -> Int -> IO ()
-play track deep = do
-   drawBoard track ("-------" ++ show deep)
-   putStr "\27[5;1f>>> "    -- line 5; pos 1
-   hFlush stdout
+   let track = Track []
+   play track
+   putStrRC 5 1 "Continue? (default)-yes, y-dumber Y-smarter, n-no >>> "
    line <- getLine
-   when (line /= "") $ play0 track line deep
+   when (line == "" ) $ run deep
+   when (line == "Y" ) $ run (add deep 1)
+   when (line == "y" ) $ run (add deep (-1))
+   where
+      play :: Track -> IO ()
+      play track = do
+         drawBoard track [] ("------- " ++ show deep)
+         putStrRC 5 1 ">>> "
+         line <- getLine
+         when (line /= "") $ play1 track line
 
-play0 :: Track -> String -> Int -> IO ()
-play0 track line deep = do
-   let n = readMaybe line
-   case n of
-      Nothing -> play track deep
-      Just n' -> 
-         if n' `elem` [0..8] \\ list track
-            then play1 track n' deep
-            else play track deep
+      play1 :: Track -> String -> IO ()
+      play1 track line = do
+         let n = readMaybe line
+         case n of
+            Nothing -> play track
+            Just n' ->
+               if n' `elem` [0..8] \\ list track
+                  then play2 track n'
+                  else play track
 
-play1 :: Track -> P -> Int -> IO ()
-play1 track n deep = do
-  let trackX = n ~ track
-  drawBoard trackX "Let me think ..."
-  if winner trackX /= 1
-     then play2 trackX deep
-     else drawBoard trackX "Cross won!"
+      play2 :: Track -> P -> IO ()
+      play2 track n = do
+         let trackX = n ~ track
+         drawBoard trackX [] "Let me think ..."
+         let (xxx, value) = winner track
+         if value == 1
+            then drawBoard trackX xxx "Cross won!"
+            else if full trackX
+            then drawBoard trackX [] "It's draw."
+            else play3 trackX
 
-play2 :: Track -> Int -> IO ()
-play2 trackX deep = do
-  if notFull trackX
-     then play3 trackX deep
-     else drawBoard trackX "It's draw."
+      play3 :: Track -> IO ()
+      play3 trackX = do
+         let posO = step trackX _min deep
+         let trackO = posO ~ trackX
+         let (ooo, value) = winner trackO
+         if futureDraw trackO
+            then drawBoard trackO [] "It'll be draw."
+            else if value  == (-1)
+            then drawBoard trackO ooo "Zero won!"
+            else play trackO
 
-play3 :: Track -> Int -> IO ()
-play3 trackX deep = do
-   let posO = step trackX _min deep
-   let trackO = posO ~ trackX
-   if winner trackO /= (-1)
-      then play trackO deep
-      else drawBoard trackO "Zero won!"
+
