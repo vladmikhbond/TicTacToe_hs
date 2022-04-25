@@ -64,15 +64,15 @@ winner (Track ns)
       winX = find (`subset` xxx) wins
       winO = find (`subset` ooo) wins
 
-value :: Track -> C
-value = snd . winner
+costOf :: Track -> C
+costOf = snd . winner
 
--- Обирає кращий за оцінкою хід, зроблений із неповного треку 
-step :: Track
+-- Обирає кращий за оцінкою хід, який продовжить даний трек 
+bestStep :: Track
   -> M   -- 1 = minimum, 2 = maximum 
   -> Int
   -> P
-step track m deep = snd $ maxmin costs
+bestStep track m deep = snd $ maxmin costs
  where
    maxmin = if m == _min then minimum else maximum
    costs = map (\b -> (estimate (b ~ track) m deep, b)) blanks  -- [(оцінка, хід)]
@@ -85,14 +85,14 @@ estimate :: Track
    -> C    -- 1, -1,  0
 estimate track m deep
    | (length . list) track < 9 && deep > 0 =
-   let c = value track in
+   let c = costOf track in
       if c /= 0
          then c
-         else estimate (p ~ track) m' (deep - 1)
+         else costOf (pos ~ track)
          where
             m' = _min + _max - m
-            p = step track m' (deep - 1)
-estimate track _ _ = value track
+            pos = bestStep track m' (deep - 1)
+estimate track _ _ = costOf track
 
 ----------------------------- UTILS ------------------------------------
 
@@ -114,7 +114,7 @@ putStrRC r c mess = do
    putStr $ rc r c ++ mess
    hFlush stdout
 
-futureDraw track = length (list track) == 8 && value (x ~ track) == 0
+futureDraw track = length (list track) == 8 && costOf (x ~ track) == 0
  where
    [x] = [0..8] \\ list track
 
@@ -150,8 +150,8 @@ run deep = do
       play2 track n = do
          let trackX = n ~ track
          drawBoard trackX [] "Let me think ..."
-         let (xxx, value) = winner track
-         if value == 1
+         let (xxx, costOf) = winner track
+         if costOf == 1
             then drawBoard trackX xxx "Cross won!"
             else if full trackX
             then drawBoard trackX [] "It's draw."
@@ -159,13 +159,12 @@ run deep = do
 
       play3 :: Track -> IO ()
       play3 trackX = do
-         let posO = step trackX _min deep
+         let posO = bestStep trackX _min deep  -- <<<
          let trackO = posO ~ trackX
-         let (ooo, value) = winner trackO
+         let (ooo, costOf) = winner trackO
          if futureDraw trackO
             then drawBoard trackO [] "It'll be draw."
-            else if value  == (-1)
+            else if costOf  == (-1)
             then drawBoard trackO ooo "Zero won!"
             else play trackO
-
-
+            
