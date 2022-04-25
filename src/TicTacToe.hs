@@ -2,7 +2,14 @@
 {-# HLINT ignore "Redundant where" #-}
 
 module TicTacToe (
-    run
+   run,
+   drawBoard,
+   Track(Track),
+   costOf,
+   bestStep,
+   winner
+
+
 ) where
 
 import Data.List (sort, (\\), find)
@@ -12,6 +19,8 @@ import System.IO (hFlush, stdout)
 import Data.Complex (imagPart)
 import Data.Maybe ( isJust, fromJust )
 
+---------------------------------- TYPES --------------------------------------
+
 type P = Int -- 0..8 - position
 type C = Int -- -1, 1, 0 - cost
 type M = Int -- 1, 2 - min | max
@@ -20,7 +29,7 @@ newtype Track = Track {list :: [P] }  deriving Show
 _max, _min :: M
 (_min, _max) = (1, 2)   -- enum
 
-----------------------------------------------------------------------
+---------------------------------- DRAWING ------------------------------------
 clrscr = "\27[0;0H\27[J"
 origin =  "\27[0;0H"
 red = "\27[31m"
@@ -30,12 +39,11 @@ norm = "\27[m"
 gray = "\27[1m\27[30m"
 rc row col= "\27["++ show row ++";"++ show col ++"f"
 
-
 drawBoard :: Track -> [P] -> String -> IO ()
 drawBoard track comb message = do
    putStr $ clrscr ++ gray ++ "0  1  2\n3  4  5\n6  7  8" ++ origin ++ norm
    mapM_ drawChar (zip (reverse (list track)) "xoxoxoxox")
-   putStrLn $ norm ++ rc 4 1 ++ message
+   putStrLn $ norm ++ rc 4 1 ++ "------- " ++ message
     where
       drawChar (pos, char) = let
          (r, c) = divMod pos 3
@@ -123,15 +131,15 @@ run :: Int -> IO ()
 run deep = do
    let track = Track []
    play track
-   putStrRC 5 1 "Continue? (default)-yes, y-dumber Y-smarter, n-no >>> "
+   putStrRC 5 1 "Continue? (default)-yes, '-'-dumber, '+'-smarter, 'n'-no >>> "
    line <- getLine
    when (line == "" ) $ run deep
-   when (line == "Y" ) $ run (add deep 1)
-   when (line == "y" ) $ run (add deep (-1))
+   when (line == "+" ) $ run (add deep 1)
+   when (line == "-" ) $ run (add deep (-1))
    where
       play :: Track -> IO ()
       play track = do
-         drawBoard track [] ("------- " ++ show deep)
+         drawBoard track [] (show deep)
          putStrRC 5 1 ">>> "
          line <- getLine
          when (line /= "") $ play1 track line
@@ -143,28 +151,32 @@ run deep = do
             Nothing -> play track
             Just n' ->
                if n' `elem` [0..8] \\ list track
-                  then play2 track n'
-                  else play track
+               then play2 track n'
+               else play track
 
       play2 :: Track -> P -> IO ()
       play2 track n = do
          let trackX = n ~ track
          drawBoard trackX [] "Let me think ..."
          let (xxx, costOf) = winner track
+         --
          if costOf == 1
-            then drawBoard trackX xxx "Cross won!"
-            else if full trackX
-            then drawBoard trackX [] "It's draw."
-            else play3 trackX
+         then drawBoard trackX xxx "Cross won!"
+         else if full trackX
+         then drawBoard trackX [] "It's draw."
+         else play3 trackX
 
       play3 :: Track -> IO ()
       play3 trackX = do
-         let posO = bestStep trackX _min deep  -- <<<
+         let posO = bestStep trackX _min deep 
          let trackO = posO ~ trackX
          let (ooo, costOf) = winner trackO
+         --
          if futureDraw trackO
-            then drawBoard trackO [] "It'll be draw."
-            else if costOf  == (-1)
-            then drawBoard trackO ooo "Zero won!"
-            else play trackO
-            
+         then drawBoard trackO [] "It'll be draw."
+         else if costOf  == (-1)
+         then drawBoard trackO ooo "Zero won!"
+         else play trackO
+
+
+
