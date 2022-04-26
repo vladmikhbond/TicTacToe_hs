@@ -5,7 +5,7 @@ module TicTacToe (
    run,
    drawBoard,
    Track(Track),
-   costOf,
+   cost,
    bestStep,
    winner
 
@@ -72,8 +72,8 @@ winner (Track ns)
       winX = find (`subset` xxx) wins
       winO = find (`subset` ooo) wins
 
-costOf :: Track -> C
-costOf = snd . winner
+cost :: Track -> C
+cost = snd . winner
 
 -- Обирає кращий за оцінкою хід, який продовжить даний трек 
 bestStep :: Track
@@ -93,14 +93,14 @@ estimate :: Track
    -> C    -- 1, -1,  0
 estimate track m deep
    | (length . list) track < 9 && deep > 0 =
-   let c = costOf track in
+   let c = cost track in
       if c /= 0
          then c
-         else costOf (pos ~ track)
+         else cost (pos ~ track)
          where
             m' = _min + _max - m
             pos = bestStep track m' (deep - 1)
-estimate track _ _ = costOf track
+estimate track _ _ = cost track
 
 ----------------------------- UTILS ------------------------------------
 
@@ -112,8 +112,8 @@ pos ~ track = Track $ pos : list track
 th :: Track -> P
 th = head . list
 
-full :: Track -> Bool
-full track = length (list track) == 9
+isFull :: Track -> Bool
+isFull track = length (list track) == 9
 
 add deep x = let y = deep + x in
    if 0 <= y && y <= 9 then y else deep
@@ -122,7 +122,7 @@ putStrRC r c mess = do
    putStr $ rc r c ++ mess
    hFlush stdout
 
-futureDraw track = length (list track) == 8 && costOf (x ~ track) == 0
+isDrawAhead track = length (list track) == 8 && cost (x ~ track) == 0
  where
    [x] = [0..8] \\ list track
 
@@ -133,7 +133,7 @@ run deep = do
    play track
    putStrRC 5 1 "Continue? (default)-yes, '-'-dumber, '+'-smarter, 'n'-no >>> "
    line <- getLine
-   when (line == "" ) $ run deep
+   when (line == "" || line == "y" ) $ run deep
    when (line == "+" ) $ run (add deep 1)
    when (line == "-" ) $ run (add deep (-1))
    where
@@ -158,11 +158,11 @@ run deep = do
       play2 track n = do
          let trackX = n ~ track
          drawBoard trackX [] "Let me think ..."
-         let (xxx, costOf) = winner track
+         let (xxx, cost) = winner trackX
          --
-         if costOf == 1
+         if cost == 1
          then drawBoard trackX xxx "Cross won!"
-         else if full trackX
+         else if isFull trackX
          then drawBoard trackX [] "It's draw."
          else play3 trackX
 
@@ -170,11 +170,11 @@ run deep = do
       play3 trackX = do
          let posO = bestStep trackX _min deep 
          let trackO = posO ~ trackX
-         let (ooo, costOf) = winner trackO
+         let (ooo, cost) = winner trackO
          --
-         if futureDraw trackO
+         if isDrawAhead trackO
          then drawBoard trackO [] "It'll be draw."
-         else if costOf  == (-1)
+         else if cost  == (-1)
          then drawBoard trackO ooo "Zero won!"
          else play trackO
 
