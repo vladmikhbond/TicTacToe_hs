@@ -8,8 +8,6 @@ module TicTacToe (
    cost,
    bestStep,
    winner
-
-
 ) where
 
 import Data.List (sort, (\\), find)
@@ -18,6 +16,7 @@ import Text.Read (readMaybe )
 import System.IO (hFlush, stdout)
 import Data.Complex (imagPart)
 import Data.Maybe ( isJust, fromJust )
+import Consul
 
 ---------------------------------- TYPES --------------------------------------
 
@@ -29,15 +28,7 @@ newtype Track = Track {list :: [P] }  deriving Show
 _max, _min :: M
 (_min, _max) = (1, 2)   -- enum
 
----------------------------------- DRAWING ------------------------------------
-clrscr = "\27[0;0H\27[J"
-origin =  "\27[0;0H"
-red = "\27[31m"
-yellow = "\27[33m"
-cian = "\27[36m"
-norm = "\27[m"
-gray = "\27[1m\27[30m"
-rc row col= "\27["++ show row ++";"++ show col ++"f"
+---------------------------------- DRAWING ------------------------------------ 
 
 drawBoard :: Track -> [P] -> String -> IO ()
 drawBoard track comb message = do
